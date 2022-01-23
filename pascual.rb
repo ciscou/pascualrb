@@ -33,9 +33,12 @@ module Pascual
         when "push"
           stack.push instruction.last
         when "load"
-          stack.push memory[instruction.last]
+          a = stack.pop
+          stack.push memory[a]
         when "store"
-          memory[instruction.last] = stack.pop
+          b = stack.pop
+          a = stack.pop
+          memory[a] = b
         when "+"
           b = stack.pop
           a = stack.pop
@@ -116,11 +119,16 @@ module Pascual
 
     private
 
-    def declare_var!(name, type)
+    def declare_var!(name, type, opts = {})
       raise "#{name} already exists" if @sym_table[name]
 
-      @sym_table[name] = { offset: @data_offset, type: type }
-      @data_offset += 1
+      @sym_table[name] = opts.merge(offset: @data_offset, type: type)
+      if type == "Integer"
+        @data_offset += 1
+      else
+        # TODO this is assuming the array elements have size 1
+        @data_offset += 1 * (opts[:end_index] - opts[:start_index] + 1)
+      end
     end
 
     def var_specs(name)
@@ -192,10 +200,38 @@ module Pascual
       colon = @lexer.next_token!
       colon.first == ":" || raise("expected :, got #{id.first}")
 
-      integer = @lexer.next_token!
-      integer.first == "Integer" || raise("expected Integer, got #{integer.first}")
+      type = @lexer.next_token!
+      case type.first
+      when "Integer"
+        declare_var! id.last, "Integer"
+      when "Array"
+        left_bracket = @lexer.next_token!
+        left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
 
-      declare_var! id.last, "Integer"
+        start_index = @lexer.next_token!
+        start_index.first == "INT" || raise("expectd INT, got #{start_index.first}")
+
+        dot = @lexer.next_token!
+        dot.first == "." || raise("expected ., got #{dot.first}")
+        dot = @lexer.next_token!
+        dot.first == "." || raise("expected ., got #{dot.first}")
+
+        end_index = @lexer.next_token!
+        end_index.first == "INT" || raise("expectd INT, got #{end_index.first}")
+
+        right_bracket = @lexer.next_token!
+        right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
+
+        of = @lexer.next_token!
+        of.first == "of" || raise("expected of, got #{of.first}")
+
+        integer = @lexer.next_token!
+        integer.first == "Integer" || raise("expected Integer, got #{integer.first}")
+
+        declare_var! id.last, "Array", of: "Integer", start_index: start_index.last.to_i, end_index: end_index.last.to_i
+      else
+        raise "invalid type #{type.first}"
+      end
     end
 
     def instructions
@@ -221,12 +257,40 @@ module Pascual
 
       case token.first
       when "ID"
-        assign = @lexer.next_token!
-        assign.first == ":=" || raise("expected :=, got #{assign.first}")
+        var = var_specs(token.last)
 
-        expression
+        generate! ["push", var[:offset]]
 
-        generate! ["store", var_specs(token.last)[:offset]]
+        case var[:type]
+        when "Integer"
+          assign = @lexer.next_token!
+          assign.first == ":=" || raise("expected :=, got #{assign.first}")
+
+          expression
+
+          generate! ["store"]
+        when "Array"
+          left_bracket = @lexer.next_token!
+          left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
+
+          expression
+
+          right_bracket = @lexer.next_token!
+          right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
+
+          # TODO this is assuming the array elements have size 1
+          # TODO this is assuming the array start at index 0
+          generate! ["+"]
+
+          assign = @lexer.next_token!
+          assign.first == ":=" || raise("expected :=, got #{assign.first}")
+
+          expression
+
+          generate! ["store"]
+        else
+          raise "unknown type #{var[:type]}"
+        end
       when "begin"
         instructions
 
@@ -347,7 +411,29 @@ module Pascual
       when "INT"
         generate! ["push", token.last.to_i]
       when "ID"
-        generate! ["load", var_specs(token.last)[:offset]]
+        var = var_specs(token.last)
+
+        generate! ["push", var_specs(token.last)[:offset]]
+
+        case var[:type]
+        when "Integer"
+          generate! ["load"]
+        when "Array"
+          left_bracket = @lexer.next_token!
+          left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
+
+          expression
+
+          right_bracket = @lexer.next_token!
+          right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
+
+          # TODO this is assuming the array elements have size 1
+          # TODO this is assuming the array start at index 0
+          generate! ["+"]
+          generate! ["load"]
+        else
+          raise "unknown type #{var[:type]}"
+        end
       else
         raise "expecting INT, got #{token.first}"
       end
@@ -440,6 +526,8 @@ module Pascual
         case token
         when "Integer"
           ["Integer"]
+        when "Array"
+          ["Array"]
         else
           raise "unexpected token #{@input[@offset, 10]}..."
         end
@@ -455,6 +543,8 @@ module Pascual
           ["program"]
         when "var"
           ["var"]
+        when "of"
+          ["of"]
         when "begin"
           ["begin"]
         when "end"
@@ -505,7 +595,7 @@ module Pascual
       elsif @input[@offset, 2] == ":="
         @offset += 2
         [":="]
-      elsif %w[. : ; + - * / < = > ( )].include?(@input[@offset])
+      elsif %w{. : ; + - * / < = > ( ) [ ]}.include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
         [token]
@@ -517,5 +607,5 @@ module Pascual
 end
 
 parser = Pascual::Parser.new.parse(File.read(ARGV.first || "program.pas"))
-# parser.dump
+parser.dump
 parser.simulate
