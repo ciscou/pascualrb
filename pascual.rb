@@ -607,5 +607,5 @@ module Pascual
 end
 
 parser = Pascual::Parser.new.parse(File.read(ARGV.first || "program.pas"))
-parser.dump
+# parser.dump
 parser.simulate
