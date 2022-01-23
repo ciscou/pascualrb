@@ -51,27 +51,56 @@ module Pascual
         when "/"
           b = stack.pop
           a = stack.pop
+          stack.push(a.fdiv(b))
+        when "div"
+          b = stack.pop
+          a = stack.pop
           stack.push(a / b)
+        when "mod"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a % b)
         when "lt"
           b = stack.pop
           a = stack.pop
           stack.push(a < b ? 1 : 0)
+        when "eq"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a == b ? 1 : 0)
+        when "gt"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a > b ? 1 : 0)
+        when "lte"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a <= b ? 1 : 0)
+        when "neq"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a != b ? 1 : 0)
+        when "gte"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a >= b ? 1 : 0)
         when "jz"
           a = stack.pop
-          ip = instruction.last if a == 0
-          break
+          ip = a == 0 ? instruction.last : ip + 1
+          next
         when "jmp"
           a = stack.pop
           ip = instruction.last
-          break
+          next
+        when "writeln"
+          a = stack.pop
+          puts a
         else
           raise "unexpected instruction #{instruction.first}"
         end
 
         ip += 1
       end
-
-      p memory
     end
 
     private
@@ -214,6 +243,32 @@ module Pascual
         instruction
 
         back_patch!(else_offset, ["jmp", current_instruction])
+      when "while"
+        cond_offset = current_instruction
+
+        cond
+
+        do_token = @lexer.next_token!
+        do_token.first == "do" || raise("expected do, got #{do_token.first}")
+
+        do_offset = current_instruction
+        generate! ["jz", -1]
+
+        instruction
+
+        generate! ["jmp", cond_offset]
+
+        back_patch!(do_offset, ["jz", current_instruction])
+      when "writeln"
+        left_par = @lexer.next_token!
+        left_par.first == "(" || raise("expected (, got #{left_par.first}")
+
+        expression
+
+        right_par = @lexer.next_token!
+        right_par.first == ")" || raise("expected ), got #{right_par.first}")
+
+        generate! ["writeln"]
       else
         raise "unexpected token #{token.first}"
       end
@@ -252,6 +307,12 @@ module Pascual
         when "/"
           number
           generate! ["/"]
+        when "div"
+          number
+          generate! ["div"]
+        when "mod"
+          number
+          generate! ["mod"]
         else break
         end
       end
@@ -284,12 +345,26 @@ module Pascual
     def cond
       expression
 
-      token = @lexer.next_token!
-      token.first == "<" || raise("expected <, got #{token.first}")
+      comp_token = @lexer.next_token!
 
       expression
 
-      generate! ["lt"]
+      case comp_token.first
+      when "<"
+        generate! ["lt"]
+      when "="
+        generate! ["eq"]
+      when ">"
+        generate! ["gt"]
+      when "<="
+        generate! ["lte"]
+      when "<>"
+        generate! ["neq"]
+      when ">="
+        generate! ["gte"]
+      else
+        raise "unexpected token #{comp_token.first}"
+      end
     end
   end
 
@@ -354,6 +429,18 @@ module Pascual
           ["then"]
         when "else"
           ["else"]
+        when "while"
+          ["while"]
+        when "do"
+          ["do"]
+        when "readln"
+          ["readln"]
+        when "writeln"
+          ["writeln"]
+        when "div"
+          ["div"]
+        when "mod"
+          ["mod"]
         else
           ["ID", token]
         end
@@ -364,10 +451,19 @@ module Pascual
           @offset += 1
         end
         ["INT", token]
+      elsif @input[@offset, 2] == "<="
+        @offset += 2
+        ["<="]
+      elsif @input[@offset, 2] == "<>"
+        @offset += 2
+        ["<>"]
+      elsif @input[@offset, 2] == ">="
+        @offset += 2
+        [">="]
       elsif @input[@offset, 2] == ":="
         @offset += 2
         [":="]
-      elsif %w[. : ; + - * / < = >].include?(@input[@offset])
+      elsif %w[. : ; + - * / < = > ( )].include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
         [token]
@@ -378,6 +474,6 @@ module Pascual
   end
 end
 
-parser = Pascual::Parser.new.parse(File.read("program.pas"))
-parser.dump
+parser = Pascual::Parser.new.parse(File.read(ARGV.first || "program.pas"))
+# parser.dump
 parser.simulate
