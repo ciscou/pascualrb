@@ -19,5 +19,5 @@ begin
   if x = 0 and y = 0 and not (z > 0) then
     writeln(42)
   else
-  begin end
+    noop
 end.

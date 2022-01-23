@@ -344,6 +344,8 @@ module Pascual
         right_par.first == ")" || raise("expected ), got #{right_par.first}")
 
         generate! ["writeln"]
+      when "noop"
+        # no-op!
       else
         raise "unexpected token #{token.first}"
       end
@@ -573,6 +575,8 @@ module Pascual
           ["or"]
         when "not"
           ["not"]
+        when "noop"
+          ["noop"]
         else
           ["ID", token]
         end

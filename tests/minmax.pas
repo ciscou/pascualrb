@@ -27,8 +27,8 @@ begin
   i := 0;
   while i < cap do
   begin
-    if arr[i] < min then min := arr[i] else begin end;
-    if arr[i] > max then max := arr[i] else begin end;
+    if arr[i] < min then min := arr[i] else noop;
+    if arr[i] > max then max := arr[i] else noop;
 
     i := i + 1
   end;

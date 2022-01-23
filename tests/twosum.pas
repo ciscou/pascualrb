@@ -31,7 +31,7 @@ begin
         writeln(j)
       end
       else
-      begin end;
+        noop;
 
       j := j + 1
     end;

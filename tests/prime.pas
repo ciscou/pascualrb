@@ -20,12 +20,12 @@ begin
       if num mod divisor = 0 then
         is_prime := 0
       else
-      begin end;
+        noop;
 
       divisor := divisor + 1
     end;
 
-    if is_prime = 1 then writeln(num) else begin end;
+    if is_prime = 1 then writeln(num) else noop;
 
     num := num + 1
   end
