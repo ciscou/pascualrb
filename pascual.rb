@@ -1,22 +1,98 @@
 module Pascual
   class Parser
     def parse(input)
+      @data_offset = 0
+      @sym_table = {}
       @code = []
       @lexer = Lexer.new(input)
 
-      instructions
+      program
 
       self
     end
 
     def dump
+      puts "sym_table"
+      puts @sym_table.map(&:inspect)
+      puts
+      puts "code"
       puts @code
     end
 
     private
 
+    def declare_var!(name, type)
+      raise "#{name} already exists" if @sym_table[name]
+
+      @sym_table[name] = { offset: @data_offset, type: type }
+      @data_offset += 1
+    end
+
+    def var_declaration(name)
+      @sym_table.fetch(name)
+    end
+
     def generate!(code)
       @code << code
+    end
+
+    def program
+      program = @lexer.next_token!
+      program.first == "program" || raise("expected program, got #{program.first}")
+
+      id = @lexer.next_token!
+      id.first == "ID" || raise("expected ID, got #{id.first}")
+
+      semicolon = @lexer.next_token!
+      semicolon.first == ";" || raise("expected ;, got #{semicolon.first}")
+
+      vars = @lexer.next_token!
+      vars.first == "var" ? vars_declarations : @lexer.undo!
+
+      begin_token = @lexer.next_token!
+      begin_token.first == "begin" || raise("expected begin, got #{begin_token.first}")
+
+      instructions
+
+      end_token = @lexer.next_token!
+      end_token.first == "end" || raise("expected end, got #{end_token.first}")
+
+      dot_token = @lexer.next_token!
+      dot_token.first == "." || raise("expected ., got #{dot_token.first}")
+
+      eof_token = @lexer.next_token!
+      eof_token.first == "EOF" || raise("expected EOF, got #{eof_token.first}")
+    end
+
+    def vars_declarations
+      loop do
+        token = @lexer.next_token!
+
+        case token.first
+        when "begin"
+          break
+        when ";"
+          next
+        else
+          @lexer.undo!
+          var
+        end
+      end
+
+      @lexer.undo!
+    end
+
+    def var
+      id = @lexer.next_token!
+      id.first == "ID" || raise("expected ID, got #{id.first}")
+
+      colon = @lexer.next_token!
+      colon.first == ":" || raise("expected :, got #{id.first}")
+
+      integer = @lexer.next_token!
+      integer.first == "Integer" || raise("expected Integer, got #{integer.first}")
+
+      declare_var! id.last, "Integer"
     end
 
     def instructions
@@ -24,7 +100,7 @@ module Pascual
         token = @lexer.next_token!
 
         case token.first
-        when "EOF"
+        when "end"
           break
         when ";"
           next
@@ -33,6 +109,8 @@ module Pascual
           instruction
         end
       end
+
+      @lexer.undo!
     end
 
     def instruction
@@ -44,7 +122,7 @@ module Pascual
 
       expression
 
-      generate! "store #{id.last}"
+      generate! "store #{var_declaration(id.last)[:offset]}"
     end
 
     def expression
@@ -131,17 +209,38 @@ module Pascual
 
       if @offset >= @input.length
         ["EOF"]
-      elsif %w[; + - * /].include?(@input[@offset])
-        token = @input[@offset]
-        @offset += 1
-        [token]
+      elsif ("A".."Z").include?(@input[@offset])
+        token = ""
+        while [("A".."Z"), ("a".."z"), ("0".."9"), ["_"]].any? { |range| range.include?(@input[@offset]) }
+          token << @input[@offset]
+          @offset += 1
+        end
+
+        case token
+        when "Integer"
+          ["Integer"]
+        else
+          raise "unexpected token #{@input[@offset, 10]}..."
+        end
       elsif ("a".."z").include?(@input[@offset])
         token = ""
         while [("a".."z"), ("0".."9"), ["_"]].any? { |range| range.include?(@input[@offset]) }
           token << @input[@offset]
           @offset += 1
         end
-        ["ID", token]
+
+        case token
+        when "program"
+          ["program"]
+        when "var"
+          ["var"]
+        when "begin"
+          ["begin"]
+        when "end"
+          ["end"]
+        else
+          ["ID", token]
+        end
       elsif ("0".."9").include?(@input[@offset])
         token = ""
         while ("0".."9").include?(@input[@offset])
@@ -152,6 +251,10 @@ module Pascual
       elsif @input[@offset, 2] == ":="
         @offset += 2
         [":="]
+      elsif %w[. : ; + - * /].include?(@input[@offset])
+        token = @input[@offset]
+        @offset += 1
+        [token]
       else
         raise "unexpected token #{@input[@offset, 10]}..."
       end
@@ -159,4 +262,4 @@ module Pascual
   end
 end
 
-Pascual::Parser.new.parse(File.read("program.rb")).dump
+Pascual::Parser.new.parse(File.read("program.pas")).dump
