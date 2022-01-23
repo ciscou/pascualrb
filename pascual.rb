@@ -21,6 +21,59 @@ module Pascual
       end
     end
 
+    def simulate
+      ip = 0
+      stack = []
+      memory = Array.new(@sym_table.length, 0)
+
+      while ip < @code.length
+        instruction = @code[ip]
+
+        case instruction.first
+        when "push"
+          stack.push instruction.last
+        when "load"
+          stack.push memory[instruction.last]
+        when "store"
+          memory[instruction.last] = stack.pop
+        when "+"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a + b)
+        when "-"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a - b)
+        when "*"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a * b)
+        when "/"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a / b)
+        when "lt"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a < b ? 1 : 0)
+        when "jz"
+          a = stack.pop
+          ip = instruction.last if a == 0
+          break
+        when "jmp"
+          a = stack.pop
+          ip = instruction.last
+          break
+        else
+          raise "unexpected instruction #{instruction.first}"
+        end
+
+        ip += 1
+      end
+
+      p memory
+    end
+
     private
 
     def declare_var!(name, type)
@@ -30,7 +83,7 @@ module Pascual
       @data_offset += 1
     end
 
-    def var_declaration(name)
+    def var_specs(name)
       @sym_table.fetch(name)
     end
 
@@ -42,7 +95,7 @@ module Pascual
       @code.length
     end
 
-    def backpatch!(offset, code)
+    def back_patch!(offset, code)
       @code[offset] = code
     end
 
@@ -85,14 +138,14 @@ module Pascual
           next
         else
           @lexer.undo!
-          var
+          var_declaration
         end
       end
 
       @lexer.undo!
     end
 
-    def var
+    def var_declaration
       id = @lexer.next_token!
       id.first == "ID" || raise("expected ID, got #{id.first}")
 
@@ -133,7 +186,7 @@ module Pascual
 
         expression
 
-        generate! "store #{var_declaration(token.last)[:offset]}"
+        generate! ["store", var_specs(token.last)[:offset]]
       when "begin"
         instructions
 
@@ -146,7 +199,7 @@ module Pascual
         then_token.first == "then" || raise("expected then, got #{then_token.first}")
 
         if_offset = current_instruction
-        generate! "jz ???"
+        generate! ["jz", -1]
 
         instruction
 
@@ -154,13 +207,13 @@ module Pascual
         else_token.first == "else" || raise("expected else, got #{else_token.first}")
 
         else_offset = current_instruction
-        generate! "jmp ???"
+        generate! ["jz", -1]
 
-        backpatch!(if_offset, "jz #{current_instruction}")
+        back_patch!(if_offset, ["jz", current_instruction])
 
         instruction
 
-        backpatch!(else_offset, "jmp #{current_instruction}")
+        back_patch!(else_offset, ["jmp", current_instruction])
       else
         raise "unexpected token #{token.first}"
       end
@@ -175,10 +228,10 @@ module Pascual
         case token.first
         when "+"
           factor
-          generate! "+"
+          generate! ["+"]
         when "-"
           factor
-          generate! "-"
+          generate! ["-"]
         else break
         end
       end
@@ -195,10 +248,10 @@ module Pascual
         case token.first
         when "*"
           number
-          generate! "*"
+          generate! ["*"]
         when "/"
           number
-          generate! "/"
+          generate! ["/"]
         else break
         end
       end
@@ -217,12 +270,12 @@ module Pascual
         number
       when "-"
         number
-        generate! "-1"
-        generate! "*"
+        generate! ["push", -1]
+        generate! ["*"]
       when "INT"
-        generate! token.last
+        generate! ["push", token.last.to_i]
       when "ID"
-        generate! "load #{var_declaration(token.last)[:offset]}"
+        generate! ["load", var_specs(token.last)[:offset]]
       else
         raise "expecting INT, got #{token.first}"
       end
@@ -236,7 +289,7 @@ module Pascual
 
       expression
 
-      generate!("lt")
+      generate! ["lt"]
     end
   end
 
@@ -325,4 +378,6 @@ module Pascual
   end
 end
 
-Pascual::Parser.new.parse(File.read("program.pas")).dump
+parser = Pascual::Parser.new.parse(File.read("program.pas"))
+parser.dump
+parser.simulate
