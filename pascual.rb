@@ -16,7 +16,9 @@ module Pascual
       puts @sym_table.map(&:inspect)
       puts
       puts "code"
-      puts @code
+      @code.each_with_index do |code, i|
+        puts "#{i.to_s.rjust(3, " ")} #{code}"
+      end
     end
 
     private
@@ -34,6 +36,14 @@ module Pascual
 
     def generate!(code)
       @code << code
+    end
+
+    def current_instruction
+      @code.length
+    end
+
+    def backpatch!(offset, code)
+      @code[offset] = code
     end
 
     def program
@@ -114,15 +124,46 @@ module Pascual
     end
 
     def instruction
-      id = @lexer.next_token!
-      id.first == "ID" || raise("expected ID, got #{id.first}")
+      token = @lexer.next_token!
 
-      assign = @lexer.next_token!
-      assign.first == ":=" || raise("expected :=, got #{assign.first}")
+      case token.first
+      when "ID"
+        assign = @lexer.next_token!
+        assign.first == ":=" || raise("expected :=, got #{assign.first}")
 
-      expression
+        expression
 
-      generate! "store #{var_declaration(id.last)[:offset]}"
+        generate! "store #{var_declaration(token.last)[:offset]}"
+      when "begin"
+        instructions
+
+        end_token = @lexer.next_token!
+        end_token.first == "end" || raise("expected end, got #{end_token.first}")
+      when "if"
+        cond
+
+        then_token = @lexer.next_token!
+        then_token.first == "then" || raise("expected then, got #{then_token.first}")
+
+        if_offset = current_instruction
+        generate! "jz ???"
+
+        instruction
+
+        else_token = @lexer.next_token!
+        else_token.first == "else" || raise("expected else, got #{else_token.first}")
+
+        else_offset = current_instruction
+        generate! "jmp ???"
+
+        backpatch!(if_offset, "jz #{current_instruction}")
+
+        instruction
+
+        backpatch!(else_offset, "jmp #{current_instruction}")
+      else
+        raise "unexpected token #{token.first}"
+      end
     end
 
     def expression
@@ -169,6 +210,9 @@ module Pascual
       token = @lexer.next_token!
 
       case token.first
+      when "("
+        expression
+        @lexer.next_token!.first == ")" || raise("expected )")
       when "+"
         number
       when "-"
@@ -177,9 +221,22 @@ module Pascual
         generate! "*"
       when "INT"
         generate! token.last
+      when "ID"
+        generate! "load #{var_declaration(token.last)[:offset]}"
       else
         raise "expecting INT, got #{token.first}"
       end
+    end
+
+    def cond
+      expression
+
+      token = @lexer.next_token!
+      token.first == "<" || raise("expected <, got #{token.first}")
+
+      expression
+
+      generate!("lt")
     end
   end
 
@@ -238,6 +295,12 @@ module Pascual
           ["begin"]
         when "end"
           ["end"]
+        when "if"
+          ["if"]
+        when "then"
+          ["then"]
+        when "else"
+          ["else"]
         else
           ["ID", token]
         end
@@ -251,7 +314,7 @@ module Pascual
       elsif @input[@offset, 2] == ":="
         @offset += 2
         [":="]
-      elsif %w[. : ; + - * /].include?(@input[@offset])
+      elsif %w[. : ; + - * / < = >].include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
         [token]
