@@ -84,6 +84,17 @@ module Pascual
           b = stack.pop
           a = stack.pop
           stack.push(a >= b ? 1 : 0)
+        when "and"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a != 0 && b != 0 ? 1 : 0)
+        when "or"
+          b = stack.pop
+          a = stack.pop
+          stack.push(a != 0 || b != 0 ? 1 : 0)
+        when "not"
+          a = stack.pop
+          stack.push(a == 0 ? 1 : 0)
         when "jz"
           a = stack.pop
           ip = a == 0 ? instruction.last : ip + 1
@@ -343,27 +354,52 @@ module Pascual
     end
 
     def cond
-      expression
+      first_token = @lexer.next_token!
 
-      comp_token = @lexer.next_token!
-
-      expression
-
-      case comp_token.first
-      when "<"
-        generate! ["lt"]
-      when "="
-        generate! ["eq"]
-      when ">"
-        generate! ["gt"]
-      when "<="
-        generate! ["lte"]
-      when "<>"
-        generate! ["neq"]
-      when ">="
-        generate! ["gte"]
+      case first_token.first
+      when "("
+        cond
+        @lexer.next_token!.first == ")" || raise("expected )")
+      when "not"
+        cond
+        generate! ["not"]
       else
-        raise "unexpected token #{comp_token.first}"
+        @lexer.undo!
+        expression
+
+        comp_token = @lexer.next_token!
+
+        expression
+
+        case comp_token.first
+        when "<"
+          generate! ["lt"]
+        when "="
+          generate! ["eq"]
+        when ">"
+          generate! ["gt"]
+        when "<="
+          generate! ["lte"]
+        when "<>"
+          generate! ["neq"]
+        when ">="
+          generate! ["gte"]
+        else
+          raise "unexpected token #{comp_token.first}"
+        end
+      end
+
+      next_token = @lexer.next_token!
+
+      case next_token.first
+      when "and"
+        cond
+        generate! ["and"]
+      when "or"
+        cond
+        generate! ["or"]
+      else
+        @lexer.undo!
       end
     end
   end
@@ -441,6 +477,12 @@ module Pascual
           ["div"]
         when "mod"
           ["mod"]
+        when "and"
+          ["and"]
+        when "or"
+          ["or"]
+        when "not"
+          ["not"]
         else
           ["ID", token]
         end
