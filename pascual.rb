@@ -311,7 +311,7 @@ module Pascual
         else_token.first == "else" || raise("expected else, got #{else_token.first}")
 
         else_offset = current_instruction
-        generate! ["jz", -1]
+        generate! ["jmp", -1]
 
         back_patch!(if_offset, ["jz", current_instruction])
 
