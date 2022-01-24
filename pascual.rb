@@ -270,6 +270,8 @@ module Pascual
       when "ID"
         var = var_specs(token.last)
 
+        # TODO probably look for a LHS until the next token is := and check types and stuff
+
         generate! ["push", var[:offset]]
 
         case var[:type]
@@ -417,6 +419,8 @@ module Pascual
         generate! ["push", token.last.to_i]
       when "ID"
         var = var_specs(token.last)
+
+        # TODO probably look for a RHS until the next token is := and check types and stuff
 
         generate! ["push", var_specs(token.last)[:offset]]
 
