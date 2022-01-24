@@ -147,32 +147,33 @@ module Pascual
       @code[offset] = code
     end
 
+    def expect_token!(token)
+      next_token = @lexer.next_token!
+
+      unless next_token.first == token
+        raise "expected #{token}, got #{next_token.first}"
+      end
+
+      next_token
+    end
+
     def program
-      program = @lexer.next_token!
-      program.first == "program" || raise("expected program, got #{program.first}")
+      expect_token!("program")
 
-      id = @lexer.next_token!
-      id.first == "ID" || raise("expected ID, got #{id.first}")
+      id = expect_token!("ID")
 
-      semicolon = @lexer.next_token!
-      semicolon.first == ";" || raise("expected ;, got #{semicolon.first}")
+      expect_token!(";")
 
       vars = @lexer.next_token!
       vars.first == "var" ? vars_declarations : @lexer.undo!
 
-      begin_token = @lexer.next_token!
-      begin_token.first == "begin" || raise("expected begin, got #{begin_token.first}")
+      expect_token!("begin")
 
       instructions
 
-      end_token = @lexer.next_token!
-      end_token.first == "end" || raise("expected end, got #{end_token.first}")
-
-      dot_token = @lexer.next_token!
-      dot_token.first == "." || raise("expected ., got #{dot_token.first}")
-
-      eof_token = @lexer.next_token!
-      eof_token.first == "EOF" || raise("expected EOF, got #{eof_token.first}")
+      expect_token!("end")
+      expect_token!(".")
+      expect_token!("EOF")
     end
 
     def vars_declarations
@@ -194,39 +195,24 @@ module Pascual
     end
 
     def var_declaration
-      id = @lexer.next_token!
-      id.first == "ID" || raise("expected ID, got #{id.first}")
+      id = expect_token!("ID")
 
-      colon = @lexer.next_token!
-      colon.first == ":" || raise("expected :, got #{id.first}")
+      expect_token!(":")
 
       type = @lexer.next_token!
       case type.first
       when "Integer"
         declare_var! id.last, "Integer"
       when "Array"
-        left_bracket = @lexer.next_token!
-        left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
+        expect_token!("[")
+        start_index = expect_token!("INT")
+        expect_token!("..")
+        end_index = expect_token!("INT")
+        expect_token!("]")
 
-        start_index = @lexer.next_token!
-        start_index.first == "INT" || raise("expectd INT, got #{start_index.first}")
+        expect_token!("of")
 
-        dot = @lexer.next_token!
-        dot.first == "." || raise("expected ., got #{dot.first}")
-        dot = @lexer.next_token!
-        dot.first == "." || raise("expected ., got #{dot.first}")
-
-        end_index = @lexer.next_token!
-        end_index.first == "INT" || raise("expectd INT, got #{end_index.first}")
-
-        right_bracket = @lexer.next_token!
-        right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
-
-        of = @lexer.next_token!
-        of.first == "of" || raise("expected of, got #{of.first}")
-
-        integer = @lexer.next_token!
-        integer.first == "Integer" || raise("expected Integer, got #{integer.first}")
+        expect_token!("Integer")
 
         declare_var! id.last, "Array", of: "Integer", start_index: start_index.last.to_i, end_index: end_index.last.to_i
       else
@@ -263,27 +249,21 @@ module Pascual
 
         case var[:type]
         when "Integer"
-          assign = @lexer.next_token!
-          assign.first == ":=" || raise("expected :=, got #{assign.first}")
+          expect_token!(":=")
 
           expression
 
           generate! ["store"]
         when "Array"
-          left_bracket = @lexer.next_token!
-          left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
-
+          expect_token!("[")
           expression
-
-          right_bracket = @lexer.next_token!
-          right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
+          expect_token!("]")
 
           # TODO this is assuming the array elements have size 1
           # TODO this is assuming the array start at index 0
           generate! ["+"]
 
-          assign = @lexer.next_token!
-          assign.first == ":=" || raise("expected :=, got #{assign.first}")
+          expect_token!(":=")
 
           expression
 
@@ -294,21 +274,18 @@ module Pascual
       when "begin"
         instructions
 
-        end_token = @lexer.next_token!
-        end_token.first == "end" || raise("expected end, got #{end_token.first}")
+        expect_token!("end")
       when "if"
         cond
 
-        then_token = @lexer.next_token!
-        then_token.first == "then" || raise("expected then, got #{then_token.first}")
+        expect_token!("then")
 
         if_offset = current_instruction
         generate! ["jz", -1]
 
         instruction
 
-        else_token = @lexer.next_token!
-        else_token.first == "else" || raise("expected else, got #{else_token.first}")
+        expect_token!("else")
 
         else_offset = current_instruction
         generate! ["jmp", -1]
@@ -323,8 +300,7 @@ module Pascual
 
         cond
 
-        do_token = @lexer.next_token!
-        do_token.first == "do" || raise("expected do, got #{do_token.first}")
+        expect_token!("do")
 
         do_offset = current_instruction
         generate! ["jz", -1]
@@ -335,13 +311,9 @@ module Pascual
 
         back_patch!(do_offset, ["jz", current_instruction])
       when "writeln"
-        left_par = @lexer.next_token!
-        left_par.first == "(" || raise("expected (, got #{left_par.first}")
-
+        expect_token!("(")
         expression
-
-        right_par = @lexer.next_token!
-        right_par.first == ")" || raise("expected ), got #{right_par.first}")
+        expect_token!(")")
 
         generate! ["writeln"]
       when "noop"
@@ -403,7 +375,7 @@ module Pascual
       case token.first
       when "("
         expression
-        @lexer.next_token!.first == ")" || raise("expected )")
+        expect_token!(")")
       when "+"
         number
       when "-"
@@ -421,13 +393,9 @@ module Pascual
         when "Integer"
           generate! ["load"]
         when "Array"
-          left_bracket = @lexer.next_token!
-          left_bracket.first == "[" || raise("expected [, got #{left_bracket.first}")
-
+          expect_token!("[")
           expression
-
-          right_bracket = @lexer.next_token!
-          right_bracket.first == "]" || raise("expected ], got #{right_bracket.first}")
+          expect_token!("]")
 
           # TODO this is assuming the array elements have size 1
           # TODO this is assuming the array start at index 0
@@ -447,7 +415,7 @@ module Pascual
       case first_token.first
       when "("
         cond
-        @lexer.next_token!.first == ")" || raise("expected )")
+        expect_token!(")")
       when "not"
         cond
         generate! ["not"]
@@ -599,6 +567,9 @@ module Pascual
       elsif @input[@offset, 2] == ":="
         @offset += 2
         [":="]
+      elsif @input[@offset, 2] == ".."
+        @offset += 2
+        [".."]
       elsif %w{. : ; + - * / < = > ( ) [ ]}.include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
