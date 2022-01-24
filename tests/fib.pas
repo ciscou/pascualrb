@@ -1,10 +1,7 @@
 program fib;
 
 var
-  a: Integer;
-  b: Integer;
-  c: Integer;
-  d: Integer;
+  a, b, c, d: Integer;
 
 begin
   a := 0;

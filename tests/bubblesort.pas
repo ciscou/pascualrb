@@ -1,11 +1,7 @@
 program bubblesort;
 
 var
-  i: Integer;
-  j: Integer;
-  tmp: Integer;
-  size: Integer;
-
+  i, j, tmp, size: Integer;
   arr: Array[0..9] of Integer;
 
 

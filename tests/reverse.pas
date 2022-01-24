@@ -1,9 +1,7 @@
 program reverse;
 
 var
-  n: Integer;
-  m: Integer;
-  r: Integer;
+  n, m, r: Integer;
 
 begin
   n := 12345;

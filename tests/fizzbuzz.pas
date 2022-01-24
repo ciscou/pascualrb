@@ -1,8 +1,7 @@
 program fizzbuz;
 
 var
-  n: Integer;
-  m: Integer;
+  n, m: Integer;
 
 begin
   m := 100;

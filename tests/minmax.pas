@@ -3,9 +3,7 @@ program minmax;
 var
   cap: Integer;
   arr: Array[0..9] of Integer;
-  min: Integer;
-  max: Integer;
-  i: Integer;
+  min, max, i: Integer;
 
 begin
   cap := 10;

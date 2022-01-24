@@ -3,9 +3,7 @@ program twosum;
 var
   cap: Integer;
   nums: Array[0..3] of Integer;
-  target: Integer;
-  i: Integer;
-  j: Integer;
+  target, i, j: Integer;
 
 begin
   cap := 4;

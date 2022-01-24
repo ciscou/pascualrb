@@ -195,14 +195,29 @@ module Pascual
     end
 
     def var_declaration
-      id = expect_token!("ID")
+      ids = []
+      ids << expect_token!("ID")
 
-      expect_token!(":")
+      loop do
+        token = @lexer.next_token!
+
+        case token.first
+        when ","
+          ids << expect_token!("ID")
+        when ":"
+          break
+        else
+          @lexer.undo!
+          expect_token!(":")
+        end
+      end
 
       type = @lexer.next_token!
       case type.first
       when "Integer"
-        declare_var! id.last, "Integer"
+        ids.each do |id|
+          declare_var! id.last, "Integer"
+        end
       when "Array"
         expect_token!("[")
         start_index = expect_token!("INT")
@@ -214,7 +229,9 @@ module Pascual
 
         expect_token!("Integer")
 
-        declare_var! id.last, "Array", of: "Integer", start_index: start_index.last.to_i, end_index: end_index.last.to_i
+        ids.each do |id|
+          declare_var! id.last, "Array", of: "Integer", start_index: start_index.last.to_i, end_index: end_index.last.to_i
+        end
       else
         raise "invalid type #{type.first}"
       end
@@ -570,7 +587,7 @@ module Pascual
       elsif @input[@offset, 2] == ".."
         @offset += 2
         [".."]
-      elsif %w{. : ; + - * / < = > ( ) [ ]}.include?(@input[@offset])
+      elsif %w{. , : ; + - * / < = > ( ) [ ]}.include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
         [token]

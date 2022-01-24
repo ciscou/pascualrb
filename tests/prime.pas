@@ -1,10 +1,7 @@
 program prime;
 
 var
-  max: Integer;
-  num: Integer;
-  is_prime: Integer;
-  divisor: Integer;
+  max, num, is_prime, divisor: Integer;
 
 begin
   max := 100;

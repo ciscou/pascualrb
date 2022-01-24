@@ -1,9 +1,7 @@
 program pi;
 
 var
-  p: Integer;
-  i: Integer;
-  s: Integer;
+  p, i, s: Integer;
 
 begin
   p := 3;

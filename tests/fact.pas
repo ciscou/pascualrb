@@ -1,8 +1,7 @@
 program fact;
 
 var
-  a: Integer;
-  b: Integer;
+  a, b: Integer;
 
 begin
   a := 1;

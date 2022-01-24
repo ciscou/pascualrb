@@ -1,9 +1,7 @@
 program foo_bar;
 
 var
-  foo: Integer;
-  bar: Integer;
-  res: Integer;
+  foo, bar, res: Integer;
 
 begin
   foo := 3 * 4 + 6 / 2;

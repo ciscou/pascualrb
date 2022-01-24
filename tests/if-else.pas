@@ -1,9 +1,7 @@
 program if_else;
 
 var
-  x: Integer;
-  y: Integer;
-  z: Integer;
+  x, y, z: Integer;
 
 begin
   if x < 2 then begin
