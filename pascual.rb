@@ -24,6 +24,8 @@ module Pascual
     def simulate
       ip = 0
       stack = []
+
+      # TODO this should probably be @data_offset, and we need to increase memory for function/procedure calls
       memory = Array.new(@sym_table.length, 0)
 
       while ip < @code.length
