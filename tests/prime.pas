@@ -1,7 +1,8 @@
 program prime;
 
 var
-  max, num, is_prime, divisor: Integer;
+  max, num, divisor: Integer;
+  is_prime: Boolean;
 
 begin
   max := 100;
@@ -9,20 +10,20 @@ begin
 
   while num <= max do
   begin
-    is_prime := 1;
+    is_prime := true;
     divisor := 2;
 
-    while is_prime = 1 and divisor <= num / 2 do
+    while is_prime and divisor <= num / 2 do
     begin
       if num mod divisor = 0 then
-        is_prime := 0
+        is_prime := false
       else
         noop;
 
       divisor := divisor + 1
     end;
 
-    if is_prime = 1 then writeln(num) else noop;
+    if is_prime then writeln(num) else noop;
 
     num := num + 1
   end

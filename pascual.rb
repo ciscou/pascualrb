@@ -123,11 +123,15 @@ module Pascual
       raise "#{name} already exists" if @sym_table[name]
 
       @sym_table[name] = opts.merge(offset: @data_offset, type: type)
-      if type == "Integer"
+
+      case type
+      when "Integer", "Boolean"
         @data_offset += 1
-      else
+      when "Array"
         # TODO this is assuming the array elements have size 1
         @data_offset += 1 * (opts[:end_index] - opts[:start_index] + 1)
+      else
+        raise "invalid type #{type}"
       end
     end
 
@@ -218,6 +222,10 @@ module Pascual
         ids.each do |id|
           declare_var! id.last, "Integer"
         end
+      when "Boolean"
+        ids.each do |id|
+          declare_var! id.last, "Boolean"
+        end
       when "Array"
         expect_token!("[")
         start_index = expect_token!("INT")
@@ -269,6 +277,12 @@ module Pascual
           expect_token!(":=")
 
           expression
+
+          generate! ["store"]
+        when "Boolean"
+          expect_token!(":=")
+
+          cond
 
           generate! ["store"]
         when "Array"
@@ -436,29 +450,41 @@ module Pascual
       when "not"
         cond
         generate! ["not"]
+      when "true"
+        generate! ["push", 1]
+      when "false"
+        generate! ["push", 0]
       else
-        @lexer.undo!
-        expression
+        var = var_specs(first_token.last) if first_token.first == "ID"
 
-        comp_token = @lexer.next_token!
-
-        expression
-
-        case comp_token.first
-        when "<"
-          generate! ["lt"]
-        when "="
-          generate! ["eq"]
-        when ">"
-          generate! ["gt"]
-        when "<="
-          generate! ["lte"]
-        when "<>"
-          generate! ["neq"]
-        when ">="
-          generate! ["gte"]
+        if var && var[:type] == "Boolean"
+          # TODO what about an Array of Boolean?
+          generate! ["push", var[:offset]]
+          generate! ["load"]
         else
-          raise "unexpected token #{comp_token.first}"
+          @lexer.undo!
+          expression
+
+          comp_token = @lexer.next_token!
+
+          expression
+
+          case comp_token.first
+          when "<"
+            generate! ["lt"]
+          when "="
+            generate! ["eq"]
+          when ">"
+            generate! ["gt"]
+          when "<="
+            generate! ["lte"]
+          when "<>"
+            generate! ["neq"]
+          when ">="
+            generate! ["gte"]
+          else
+            raise "unexpected token #{comp_token.first}"
+          end
         end
       end
 
@@ -513,6 +539,8 @@ module Pascual
         case token
         when "Integer"
           ["Integer"]
+        when "Boolean"
+          ["Boolean"]
         when "Array"
           ["Array"]
         else
@@ -562,6 +590,10 @@ module Pascual
           ["not"]
         when "noop"
           ["noop"]
+        when "true"
+          ["true"]
+        when "false"
+          ["false"]
         else
           ["ID", token]
         end
