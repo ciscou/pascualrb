@@ -379,23 +379,23 @@ module Pascual
     end
 
     def factor
-      number
+      term
 
       loop do
         token = @lexer.next_token!
 
         case token.first
         when "*"
-          number
+          term
           generate! ["*"]
         when "/"
-          number
+          term
           generate! ["/"]
         when "div"
-          number
+          term
           generate! ["div"]
         when "mod"
-          number
+          term
           generate! ["mod"]
         else break
         end
@@ -404,7 +404,7 @@ module Pascual
       @lexer.undo!
     end
 
-    def number
+    def term
       token = @lexer.next_token!
 
       case token.first
@@ -412,9 +412,9 @@ module Pascual
         expression
         expect_token!(")")
       when "+"
-        number
+        term
       when "-"
-        number
+        term
         generate! ["push", -1]
         generate! ["*"]
       when "INT"
