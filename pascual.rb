@@ -24,22 +24,30 @@ module Pascual
     def simulate
       ip = 0
       stack = []
+      offset = [0]
 
-      # TODO this should probably be @data_offset, and we need to increase memory for function/procedure calls
-      memory = Array.new(@sym_table.length, 0)
+      memory = Array.new(640_000, 0)
 
       while ip < @code.length
         instruction = @code[ip]
 
         case instruction.first
+        when "allocate"
+          offset.push instruction.last
+        when "free"
+          offset.pop
+        when "offset"
+          stack.push offset[-2]
         when "push"
           stack.push instruction.last
         when "load"
           a = stack.pop
+          raise "EOM" if a >= 640_000
           stack.push memory[a]
         when "store"
           b = stack.pop
           a = stack.pop
+          raise "EOM" if a >= 640_000
           memory[a] = b
         when "+"
           b = stack.pop
@@ -175,7 +183,11 @@ module Pascual
 
       expect_token!("begin")
 
+      generate! ["allocate", @data_offset]
+
       instructions
+
+      generate! ["free", @data_offset]
 
       expect_token!("end")
       expect_token!(".")
@@ -275,6 +287,8 @@ module Pascual
         # TODO probably look for a LHS until the next token is := and check types and stuff
 
         generate! ["push", var[:offset]]
+        generate! ["offset"]
+        generate! ["+"]
 
         case var[:type]
         when "Integer"
@@ -425,6 +439,8 @@ module Pascual
         # TODO probably look for a RHS until the next token is := and check types and stuff
 
         generate! ["push", var_specs(token.last)[:offset]]
+        generate! ["offset"]
+        generate! ["+"]
 
         case var[:type]
         when "Integer"
@@ -466,6 +482,8 @@ module Pascual
         if var && var[:type] == "Boolean"
           # TODO what about an Array of Boolean?
           generate! ["push", var[:offset]]
+          generate! ["offset"]
+          generate! ["+"]
           generate! ["load"]
         else
           @lexer.undo!
