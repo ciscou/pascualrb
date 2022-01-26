@@ -225,7 +225,7 @@ module Pascual
         token = @lexer.next_token!
 
         case token.first
-        when "begin"
+        when "begin", ")"
           break
         when ";"
           next
@@ -293,10 +293,7 @@ module Pascual
 
       function_name = expect_token!("ID")
       expect_token!("(")
-      argument_name = expect_token!("ID")
-      expect_token!(":")
-      expect_token!("Integer")
-      declare_var!(argument_name.last, "Integer")
+      vars_declarations
       expect_token!(")")
 
       expect_token!(":")
@@ -308,12 +305,15 @@ module Pascual
       address = current_instruction
       generate! ["allocate", @data_offsets[-1]]
 
-      var = var_specs(argument_name.last)
-      generate! ["push", var[:offset]]
-      generate! ["offset"]
-      generate! ["+"]
-      generate! ["swap"]
-      generate! ["store"]
+      @sym_tables.last.reverse_each do |arg_name, arg_specs|
+        next if arg_name == function_name.last
+
+        generate! ["push", arg_specs[:offset]]
+        generate! ["offset"]
+        generate! ["+"]
+        generate! ["swap"]
+        generate! ["store"]
+      end
 
       expect_token!("begin")
 
