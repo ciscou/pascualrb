@@ -176,7 +176,7 @@ module Pascual
       next_token = @lexer.next_token!
 
       unless next_token.first == token
-        raise "expected #{token}, got #{next_token.first}"
+        raise "expected #{token}, got #{next_token.first}, at line #{@lexer.line}, col #{@lexer.col}"
       end
 
       next_token
@@ -446,7 +446,7 @@ module Pascual
       when "noop"
         # no-op!
       else
-        raise "unexpected token #{token.first}"
+        raise "unexpected token #{token.first} at line #{@lexer.line}, col #{@lexer.col}"
       end
     end
 
@@ -618,15 +618,25 @@ module Pascual
     def initialize(input)
       @input, @undo = input, false
       @offset = 0
+      @line = 1
+      @col = 1
     end
+
+    attr_reader :line, :col
 
     def next_token!
       if @undo
         @undo = false
+        @line = @prev_line
+        @col = @prev_col
         return @prev_token
       end
 
       @prev_token = extract_next_token!
+      @prev_line = @line
+      @prev_col = @col
+
+      @prev_token
     end
 
     def undo!
@@ -636,7 +646,16 @@ module Pascual
     private
 
     def extract_next_token!
-      @offset += 1 while ["\n", "\t", " "].include?(@input[@offset])
+      while ["\n", "\t", " "].include?(@input[@offset])
+        if @input[@offset] == "\n"
+          @col = 1
+          @line += 1
+        else
+          @col += 1
+        end
+
+        @offset += 1
+      end
 
       if @offset >= @input.length
         ["EOF"]
@@ -647,6 +666,8 @@ module Pascual
           @offset += 1
         end
 
+        @col += token.length
+
         case token
         when "Integer"
           ["Integer"]
@@ -655,7 +676,7 @@ module Pascual
         when "Array"
           ["Array"]
         else
-          raise "unexpected token #{@input[@offset, 10]}..."
+          raise "unexpected token #{token} at line #{@line} col #{@col - token.length}"
         end
       elsif ("a".."z").include?(@input[@offset])
         token = ""
@@ -663,6 +684,8 @@ module Pascual
           token << @input[@offset]
           @offset += 1
         end
+
+        @col += token.length
 
         case token
         when "program"
@@ -716,28 +739,35 @@ module Pascual
           token << @input[@offset]
           @offset += 1
         end
+        @col += token.length
         ["INT", token]
       elsif @input[@offset, 2] == "<="
         @offset += 2
+        @col += 2
         ["<="]
       elsif @input[@offset, 2] == "<>"
         @offset += 2
+        @col += 2
         ["<>"]
       elsif @input[@offset, 2] == ">="
         @offset += 2
+        @col += 2
         [">="]
       elsif @input[@offset, 2] == ":="
         @offset += 2
+        @col += 2
         [":="]
       elsif @input[@offset, 2] == ".."
         @offset += 2
+        @col += 2
         [".."]
       elsif %w{. , : ; + - * / < = > ( ) [ ]}.include?(@input[@offset])
         token = @input[@offset]
         @offset += 1
+        @col += 1
         [token]
       else
-        raise "unexpected token #{@input[@offset, 10]}..."
+        raise "unexpected token #{@input[@offset]} at line #{@line} col #{@col}"
       end
     end
   end
