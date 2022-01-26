@@ -1,8 +1,8 @@
 module Pascual
   class Parser
     def parse(input)
-      @data_offset = 0
-      @sym_table = {}
+      @data_offsets = [0]
+      @sym_tables = [{}]
       @code = []
       @lexer = Lexer.new(input)
 
@@ -13,7 +13,7 @@ module Pascual
 
     def dump
       puts "sym_table"
-      puts @sym_table.map(&:inspect)
+      puts @sym_tables.map(&:inspect)
       puts
       puts "code"
       @code.each_with_index do |code, i|
@@ -24,6 +24,7 @@ module Pascual
     def simulate
       ip = 0
       stack = []
+      calls = []
       offset = [0]
 
       memory = Array.new(640_000, 0)
@@ -112,10 +113,18 @@ module Pascual
           a = stack.pop
           ip = a == 0 ? instruction.last : ip + 1
           next
+        when "jsr"
+          calls.push(ip)
+          ip = instruction.last
+          next
+        when "ret"
+          ip = calls.pop
         when "jmp"
           a = stack.pop
           ip = instruction.last
           next
+        when "swap"
+          stack[-2], stack[-1] = stack[-1], stack[-2]
         when "writeln"
           a = stack.pop
           puts a
@@ -130,23 +139,25 @@ module Pascual
     private
 
     def declare_var!(name, type, opts = {})
-      raise "#{name} already exists" if @sym_table[name]
+      raise "#{name} already exists" if @sym_tables.last[name]
 
-      @sym_table[name] = opts.merge(offset: @data_offset, type: type)
+      @sym_tables.last[name] = opts.merge(offset: @data_offsets.last, type: type)
 
       case type
       when "Integer", "Boolean"
-        @data_offset += 1
+        @data_offsets[-1] += 1
       when "Array"
         # TODO this is assuming the array elements have size 1
-        @data_offset += 1 * (opts[:end_index] - opts[:start_index] + 1)
+        @data_offsets[-1] += 1 * (opts[:end_index] - opts[:start_index] + 1)
+      when "Function"
+        # no-op
       else
         raise "invalid type #{type}"
       end
     end
 
     def var_specs(name)
-      @sym_table.fetch(name)
+      @sym_tables.last.fetch(name)
     end
 
     def generate!(code)
@@ -172,22 +183,37 @@ module Pascual
     end
 
     def program
+      generate! ["jmp", -1] # reverse jump to main function address
+
       expect_token!("program")
 
       id = expect_token!("ID")
 
       expect_token!(";")
 
-      vars = @lexer.next_token!
-      vars.first == "var" ? vars_declarations : @lexer.undo!
+      loop do
+        token = @lexer.next_token!
+
+        case token.first
+        when "var"
+          vars_declarations
+        when "function"
+          @lexer.undo!
+          function_declaration
+        else
+          @lexer.undo!
+          break
+        end
+      end
 
       expect_token!("begin")
 
-      generate! ["allocate", @data_offset]
+      back_patch!(0, ["jmp", current_instruction])
+      generate! ["allocate", @data_offsets[-1]]
 
       instructions
 
-      generate! ["free", @data_offset]
+      generate! ["free", @data_offsets[-1]]
 
       expect_token!("end")
       expect_token!(".")
@@ -257,6 +283,58 @@ module Pascual
       else
         raise "invalid type #{type.first}"
       end
+    end
+
+    def function_declaration
+      expect_token!("function")
+
+      @sym_tables.push({})
+      @data_offsets.push(0)
+
+      function_name = expect_token!("ID")
+      expect_token!("(")
+      argument_name = expect_token!("ID")
+      expect_token!(":")
+      expect_token!("Integer")
+      declare_var!(argument_name.last, "Integer")
+      expect_token!(")")
+
+      expect_token!(":")
+      expect_token!("Integer")
+      expect_token!(";")
+
+      declare_var!(function_name.last, "Integer")
+
+      address = current_instruction
+      generate! ["allocate", @data_offsets[-1]]
+
+      var = var_specs(argument_name.last)
+      generate! ["push", var[:offset]]
+      generate! ["offset"]
+      generate! ["+"]
+      generate! ["swap"]
+      generate! ["store"]
+
+      expect_token!("begin")
+
+      instructions
+
+      expect_token!("end")
+      expect_token!(";")
+
+      fun = var_specs(function_name.last)
+      generate! ["push", fun[:offset]]
+      generate! ["offset"]
+      generate! ["+"]
+      generate! ["load"]
+      generate! ["ret"]
+
+      generate! ["free", @data_offsets[-1]]
+
+      @sym_tables.pop
+      @data_offsets.pop
+
+      declare_var!(function_name.last, "Function", address: address)
     end
 
     def instructions
@@ -438,9 +516,11 @@ module Pascual
 
         # TODO probably look for a RHS until the next token is := and check types and stuff
 
-        generate! ["push", var_specs(token.last)[:offset]]
-        generate! ["offset"]
-        generate! ["+"]
+        unless var[:type] == "Function"
+          generate! ["push", var[:offset]]
+          generate! ["offset"]
+          generate! ["+"]
+        end
 
         case var[:type]
         when "Integer"
@@ -454,6 +534,13 @@ module Pascual
           # TODO this is assuming the array start at index 0
           generate! ["+"]
           generate! ["load"]
+        when "Function"
+          expect_token!("(")
+          expression
+          expect_token!(")")
+
+          # TODO this is assuming all functions accept one argument of type Integer
+          generate! ["jsr", var[:address]]
         else
           raise "unknown type #{var[:type]}"
         end
@@ -618,6 +705,8 @@ module Pascual
           ["true"]
         when "false"
           ["false"]
+        when "function"
+          ["function"]
         else
           ["ID", token]
         end
