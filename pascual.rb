@@ -173,7 +173,7 @@ module Pascual
     end
 
     def expect_token!(token)
-      next_token = @lexer.next_token!
+      next_token = @lexer.next!
 
       unless next_token.first == token
         raise "expected #{token}, got #{next_token.first}, at line #{@lexer.line}, col #{@lexer.col}"
@@ -192,16 +192,15 @@ module Pascual
       expect_token!(";")
 
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when "var"
+          @lexer.next!
           vars_declarations
         when "function"
-          @lexer.undo!
           function_declaration
         else
-          @lexer.undo!
           break
         end
       end
@@ -222,20 +221,18 @@ module Pascual
 
     def vars_declarations
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when "begin", ")"
           break
         when ";"
+          @lexer.next!
           next
         else
-          @lexer.undo!
           var_declaration
         end
       end
-
-      @lexer.undo!
     end
 
     def var_declaration
@@ -243,20 +240,21 @@ module Pascual
       ids << expect_token!("ID")
 
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when ","
+          @lexer.next!
           ids << expect_token!("ID")
         when ":"
+          @lexer.next!
           break
         else
-          @lexer.undo!
           expect_token!(":")
         end
       end
 
-      type = @lexer.next_token!
+      type = @lexer.next!
       case type.first
       when "Integer"
         ids.each do |id|
@@ -339,24 +337,22 @@ module Pascual
 
     def instructions
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when "end"
           break
         when ";"
+          @lexer.next!
           next
         else
-          @lexer.undo!
           instruction
         end
       end
-
-      @lexer.undo!
     end
 
     def instruction
-      token = @lexer.next_token!
+      token = @lexer.next!
 
       case token.first
       when "ID"
@@ -454,50 +450,52 @@ module Pascual
       factor
 
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when "+"
+          @lexer.next!
           factor
           generate! ["+"]
         when "-"
+          @lexer.next!
           factor
           generate! ["-"]
         else break
         end
       end
-
-      @lexer.undo!
     end
 
     def factor
       term
 
       loop do
-        token = @lexer.next_token!
+        token = @lexer.peek
 
         case token.first
         when "*"
+          @lexer.next!
           term
           generate! ["*"]
         when "/"
+          @lexer.next!
           term
           generate! ["/"]
         when "div"
+          @lexer.next!
           term
           generate! ["div"]
         when "mod"
+          @lexer.next!
           term
           generate! ["mod"]
         else break
         end
       end
-
-      @lexer.undo!
     end
 
     def term
-      token = @lexer.next_token!
+      token = @lexer.next!
 
       case token.first
       when "("
@@ -550,33 +548,37 @@ module Pascual
     end
 
     def cond
-      first_token = @lexer.next_token!
+      first_token = @lexer.peek
 
       case first_token.first
       when "("
+        @lexer.next!
         cond
         expect_token!(")")
       when "not"
+        @lexer.next!
         cond
         generate! ["not"]
       when "true"
+        @lexer.next!
         generate! ["push", 1]
       when "false"
+        @lexer.next!
         generate! ["push", 0]
       else
         var = var_specs(first_token.last) if first_token.first == "ID"
 
         if var && var[:type] == "Boolean"
+          @lexer.next!
           # TODO what about an Array of Boolean?
           generate! ["push", var[:offset]]
           generate! ["offset"]
           generate! ["+"]
           generate! ["load"]
         else
-          @lexer.undo!
           expression
 
-          comp_token = @lexer.next_token!
+          comp_token = @lexer.next!
 
           expression
 
@@ -599,48 +601,43 @@ module Pascual
         end
       end
 
-      next_token = @lexer.next_token!
+      next_token = @lexer.peek
 
       case next_token.first
       when "and"
+        @lexer.next!
         cond
         generate! ["and"]
       when "or"
+        @lexer.next!
         cond
         generate! ["or"]
       else
-        @lexer.undo!
       end
     end
   end
 
   class Lexer
     def initialize(input)
-      @input, @undo = input, false
+      @input = input
       @offset = 0
       @line = 1
       @col = 1
+      @it = Enumerator.new do |y|
+        loop do
+          y << extract_next_token!
+        end
+      end
     end
 
     attr_reader :line, :col
 
-    def next_token!
-      if @undo
-        @undo = false
-        @line = @prev_line
-        @col = @prev_col
-        return @prev_token
-      end
-
-      @prev_token = extract_next_token!
-      @prev_line = @line
-      @prev_col = @col
-
-      @prev_token
+    def peek
+      @it.peek
     end
 
-    def undo!
-      @undo = true
+    def next!
+      @it.next
     end
 
     private
