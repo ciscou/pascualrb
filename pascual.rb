@@ -120,7 +120,6 @@ module Pascual
         when "ret"
           ip = calls.pop
         when "jmp"
-          a = stack.pop
           ip = instruction.last
           next
         when "swap"
@@ -332,9 +331,10 @@ module Pascual
       generate! ["offset"]
       generate! ["+"]
       generate! ["load"]
-      generate! ["ret"]
 
       generate! ["free", @data_offsets[-1]]
+
+      generate! ["ret"]
 
       @sym_tables.pop
       @data_offsets.pop

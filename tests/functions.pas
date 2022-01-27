@@ -12,6 +12,11 @@ begin
   end;
 end;
 
+function square(n: Integer): Integer;
 begin
-  writeln(pow(pow(3, 2), 2))
+  square := pow(n, 2);
+end;
+
+begin
+  writeln(square(square(3)))
 end.
