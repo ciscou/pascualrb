@@ -187,7 +187,7 @@ module Pascual
 
       expect_token!("program")
 
-      id = expect_token!("ID")
+      expect_token!("ID")
 
       expect_token!(";")
 
