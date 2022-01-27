@@ -157,7 +157,11 @@ module Pascual
     end
 
     def var_specs(name)
-      @sym_tables.last.fetch(name)
+      @sym_tables.reverse_each do |sym_table|
+        return sym_table[name] if sym_table.key?(name)
+      end
+
+      raise "Unknown variable or function #{name}"
     end
 
     def generate!(code)
@@ -247,10 +251,8 @@ module Pascual
           @lexer.next!
           ids << expect_token!("ID")
         when ":"
-          @lexer.next!
-          break
-        else
           expect_token!(":")
+          break
         end
       end
 
@@ -313,6 +315,11 @@ module Pascual
         generate! ["store"]
       end
 
+      if @lexer.peek.first == "var"
+        @lexer.next!
+        vars_declarations;
+      end
+
       expect_token!("begin")
 
       instructions
@@ -344,7 +351,6 @@ module Pascual
           break
         when ";"
           @lexer.next!
-          next
         else
           instruction
         end
@@ -446,6 +452,22 @@ module Pascual
       end
     end
 
+    def expressions
+      expression
+
+      loop do
+        token = @lexer.peek
+
+        case token.first
+        when ","
+          @lexer.next!
+          expression
+        else
+          break
+        end
+      end
+    end
+
     def expression
       factor
 
@@ -534,10 +556,10 @@ module Pascual
           generate! ["load"]
         when "Function"
           expect_token!("(")
-          expression
+          expressions
           expect_token!(")")
 
-          # TODO this is assuming all functions accept one argument of type Integer
+          # TODO this is assuming all functions accept arguments of type Integer
           generate! ["jsr", var[:address]]
         else
           raise "unknown type #{var[:type]}"
@@ -625,7 +647,9 @@ module Pascual
       @col = 1
       @it = Enumerator.new do |y|
         loop do
-          y << extract_next_token!
+          token = extract_next_token!
+          y << token
+          break if token.first == "EOF"
         end
       end
     end
