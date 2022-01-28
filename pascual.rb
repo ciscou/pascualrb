@@ -26,7 +26,7 @@ module Pascual
 
         case instruction.first
         when "allocate"
-          offset.push instruction.last
+          offset.push(offset.last + instruction.last)
         when "free"
           offset.pop
         when "offset"

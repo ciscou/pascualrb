@@ -182,24 +182,26 @@ module Pascual
       expect_token!("Integer")
       expect_token!(";")
 
+      arg_names = @sym_tables.last.keys
+
       address = current_instruction
       declare_var!(function_name.last, "Function", address: address)
 
+      if @lexer.peek.first == "var"
+        @lexer.next!
+        vars_declarations;
+      end
+
       generate! ["allocate", @data_offsets[-1]]
 
-      @sym_tables.last.reverse_each do |arg_name, arg_specs|
-        next if arg_name == function_name.last
+      arg_names.reverse_each do |arg_name|
+        arg_specs = var_specs(arg_name)
 
         generate! ["push", arg_specs[:offset]]
         generate! ["offset"]
         generate! ["+"]
         generate! ["swap"]
         generate! ["store"]
-      end
-
-      if @lexer.peek.first == "var"
-        @lexer.next!
-        vars_declarations;
       end
 
       expect_token!("begin")

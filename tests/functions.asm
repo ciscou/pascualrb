@@ -1,5 +1,5 @@
 jmp 82
-allocate 2
+allocate 4
 push 1
 offset
 +
