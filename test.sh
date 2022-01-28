@@ -4,7 +4,8 @@ cd tests
 
 for i in *.pas
 do
-  ruby -w ../pascual.rb $i > $(basename $i .pas).txt
+  ruby -w ../pascualc.rb $i > $(basename $i .pas).asm
+  ruby -w ../pascual.rb $(basename $i .pas).asm > $(basename $i .pas).txt
 done
 
 cd ..
