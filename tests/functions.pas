@@ -1,20 +1,21 @@
 program functions;
 
 function pow(base, exponent: Integer): Integer;
-var i: Integer;
+var i, res: Integer;
 begin
-  pow := 1;
+  res := 1;
   i := 0;
   while i < exponent do
   begin
-    pow := pow * base;
+    res := res * base;
     i := i + 1
   end;
+  return res
 end;
 
 function square(n: Integer): Integer;
 begin
-  square := pow(n, 2);
+  return pow(n, 2);
 end;
 
 begin

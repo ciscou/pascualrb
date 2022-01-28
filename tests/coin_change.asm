@@ -1,5 +1,5 @@
-jmp 45
-allocate 3
+jmp 38
+allocate 2
 push 1
 offset
 +
@@ -19,29 +19,22 @@ offset
 +
 load
 lt
-jz 31
-push 2
-offset
-+
+jz 29
 push 0
 offset
 +
 load
-store
-jmp 39
-push 2
-offset
-+
+free 2
+ret
+jmp 35
 push 1
 offset
 +
 load
-store
-push 2
-offset
-+
-load
-free 3
+free 2
+ret
+push -1
+free 2
 ret
 allocate 133
 push 132
@@ -91,7 +84,7 @@ offset
 +
 load
 lte
-jz 115
+jz 108
 push 5
 offset
 +
@@ -112,7 +105,7 @@ load
 push 1
 +
 store
-jmp 84
+jmp 77
 push 5
 offset
 +
@@ -134,7 +127,7 @@ offset
 +
 load
 lte
-jz 227
+jz 220
 push 129
 offset
 +
@@ -146,7 +139,7 @@ offset
 load
 push 4
 lt
-jz 216
+jz 209
 push 131
 offset
 +
@@ -171,7 +164,7 @@ offset
 load
 push 0
 gte
-jz 205
+jz 198
 push 5
 offset
 +
@@ -202,7 +195,7 @@ load
 +
 jsr 1
 store
-jmp 205
+jmp 198
 push 129
 offset
 +
@@ -213,7 +206,7 @@ load
 push 1
 +
 store
-jmp 142
+jmp 135
 push 130
 offset
 +
@@ -224,7 +217,7 @@ load
 push 1
 +
 store
-jmp 127
+jmp 120
 push 5
 offset
 +

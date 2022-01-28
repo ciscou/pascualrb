@@ -3,9 +3,9 @@ program coin_change;
 function min(a, b: Integer): Integer;
 begin
   if a < b then
-    min := a
+    return a
   else
-    min := b
+    return b
 end;
 
 var

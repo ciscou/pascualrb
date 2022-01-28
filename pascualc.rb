@@ -182,9 +182,9 @@ module Pascual
       expect_token!("Integer")
       expect_token!(";")
 
-      declare_var!(function_name.last, "Integer")
-
       address = current_instruction
+      declare_var!(function_name.last, "Function", address: address)
+
       generate! ["allocate", @data_offsets[-1]]
 
       @sym_tables.last.reverse_each do |arg_name, arg_specs|
@@ -209,14 +209,9 @@ module Pascual
       expect_token!("end")
       expect_token!(";")
 
-      fun = var_specs(function_name.last)
-      generate! ["push", fun[:offset]]
-      generate! ["offset"]
-      generate! ["+"]
-      generate! ["load"]
-
+      # just in case there were no return instruction
+      generate! ["push", -1]
       generate! ["free", @data_offsets[-1]]
-
       generate! ["ret"]
 
       @sym_tables.pop
@@ -328,6 +323,11 @@ module Pascual
         expect_token!(")")
 
         generate! ["writeln"]
+      when "return"
+        expression
+
+        generate! ["free", @data_offsets[-1]]
+        generate! ["ret"]
       when "noop"
         # no-op!
       else
@@ -545,6 +545,7 @@ module Pascual
       true
       false
       function
+      return
     ]
 
     TYPES = %w[
