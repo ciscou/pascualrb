@@ -58,10 +58,11 @@ module Pascual
     end
 
     def expect_token!(token)
+      line, col = @lexer.line, @lexer.col
       next_token = @lexer.next!
 
       unless next_token.first == token
-        raise "expected #{token}, got #{next_token.first}, at line #{@lexer.line}, col #{@lexer.col}"
+        raise "expected #{token}, got #{next_token.first}, at line #{line}, col #{col}"
       end
 
       next_token
@@ -131,7 +132,7 @@ module Pascual
         when ","
           @lexer.next!
           ids << expect_token!("ID")
-        when ":"
+        else
           expect_token!(":")
           break
         end
@@ -500,7 +501,7 @@ module Pascual
           when ">="
             generate! ["gte"]
           else
-            raise "unexpected token #{comp_token.first}"
+            raise "unexpected token #{comp_token.first} at line #{@lexer.line}, col #{@lexer.col}"
           end
         end
       end
