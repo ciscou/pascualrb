@@ -20,7 +20,7 @@ module Pascual
     private
 
     def declare_var!(name, type, opts = {})
-      raise "#{name} already exists" if @sym_tables.last[name]
+      raise "#{name} already exists at line #{@lexer.line}, col #{@lexer.col - name.length}" if @sym_tables.last[name]
 
       @sym_tables.last[name] = opts.merge(offset: @data_offsets.last, type: type)
 
@@ -33,7 +33,7 @@ module Pascual
       when "Function"
         # no-op
       else
-        raise "invalid type #{type}"
+        raise "invalid type #{type} at line #{@lexer.line}, col #{@lexer.col}"
       end
     end
 
@@ -42,7 +42,7 @@ module Pascual
         return sym_table[name] if sym_table.key?(name)
       end
 
-      raise "Unknown variable or function #{name}"
+      raise "Unknown variable or function #{name} at line #{@lexer.line}, col #{@lexer.col - name.length}"
     end
 
     def generate!(code)
@@ -62,7 +62,7 @@ module Pascual
       next_token = @lexer.next!
 
       unless next_token.first == token
-        raise "expected #{token}, got #{next_token.first}, at line #{line}, col #{col}"
+        raise "expected #{token}, got #{next_token.first} at line #{line}, col #{col}"
       end
 
       next_token
@@ -163,7 +163,7 @@ module Pascual
           declare_var! id.last, "Array", of: "Integer", start_index: start_index.last.to_i, end_index: end_index.last.to_i
         end
       else
-        raise "invalid type #{type.first}"
+        raise "invalid type #{type.first} at line #{@lexer.line}, col #{@lexer.col}"
       end
     end
 
@@ -278,7 +278,7 @@ module Pascual
 
           generate! ["store"]
         else
-          raise "unknown type #{var[:type]}"
+          raise "unknown type #{var[:type]} at line #{@lexer.line}, col #{@lexer.col}"
         end
       when "begin"
         instructions
@@ -447,10 +447,10 @@ module Pascual
           # TODO this is assuming all functions accept arguments of type Integer
           generate! ["jsr", var[:address]]
         else
-          raise "unknown type #{var[:type]}"
+          raise "unknown type #{var[:type]} at line #{@lexer.line}, col #{@lexer.col}"
         end
       else
-        raise "expecting INT, got #{token.first}"
+        raise "expecting INT, got #{token.first} at line #{@lexer.line}, col #{@lexer.col}"
       end
     end
 
