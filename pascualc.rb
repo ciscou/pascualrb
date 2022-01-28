@@ -522,6 +522,36 @@ module Pascual
   end
 
   class Lexer
+    KEYWORDS = %w[
+      program
+      var
+      of
+      begin
+      end
+      if
+      then
+      else
+      while
+      do
+      readln
+      writeln
+      div
+      mod
+      and
+      or
+      not
+      noop
+      true
+      false
+      function
+    ]
+
+    TYPES = %w[
+      Integer
+      Boolean
+      Array
+    ]
+
     def initialize(input)
       @input = input
       @offset = 0
@@ -567,17 +597,11 @@ module Pascual
         while [("A".."Z"), ("a".."z"), ("0".."9"), ["_"]].any? { |range| range.include?(@input[@offset]) }
           token << @input[@offset]
           @offset += 1
+          @col += 1
         end
 
-        @col += token.length
-
-        case token
-        when "Integer"
-          ["Integer"]
-        when "Boolean"
-          ["Boolean"]
-        when "Array"
-          ["Array"]
+        if TYPES.include?(token)
+          [token]
         else
           raise "unexpected token #{token} at line #{@line} col #{@col - token.length}"
         end
@@ -586,53 +610,11 @@ module Pascual
         while [("a".."z"), ("0".."9"), ["_"]].any? { |range| range.include?(@input[@offset]) }
           token << @input[@offset]
           @offset += 1
+          @col += 1
         end
 
-        @col += token.length
-
-        case token
-        when "program"
-          ["program"]
-        when "var"
-          ["var"]
-        when "of"
-          ["of"]
-        when "begin"
-          ["begin"]
-        when "end"
-          ["end"]
-        when "if"
-          ["if"]
-        when "then"
-          ["then"]
-        when "else"
-          ["else"]
-        when "while"
-          ["while"]
-        when "do"
-          ["do"]
-        when "readln"
-          ["readln"]
-        when "writeln"
-          ["writeln"]
-        when "div"
-          ["div"]
-        when "mod"
-          ["mod"]
-        when "and"
-          ["and"]
-        when "or"
-          ["or"]
-        when "not"
-          ["not"]
-        when "noop"
-          ["noop"]
-        when "true"
-          ["true"]
-        when "false"
-          ["false"]
-        when "function"
-          ["function"]
+        if KEYWORDS.include?(token)
+          [token]
         else
           ["ID", token]
         end
